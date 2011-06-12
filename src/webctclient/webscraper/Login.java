@@ -95,7 +95,7 @@ glcid=URN%3AX%2DWEBCT%2DVISTA%2DV1%3A156bc1b3%2D80f3%2D290b%2D010c%2Db13c10f8e69
 			"Connection: close\n"+
 			"Content-Length: "+len+"\n"+
 			"\n";
-		logger.info("Request:\n"+req+body);
+//		logger.info("Request:\n"+req+body);
 		os.write(req.getBytes(CHARSET));
 		os.write(bytes);
 		os.flush();

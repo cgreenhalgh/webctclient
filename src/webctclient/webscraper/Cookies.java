@@ -49,4 +49,9 @@ public class Cookies {
 	public String getRequestProperty() {
 		return "Cookie";
 	}
+	@Override
+	public String toString() {
+		return "Cookies [cookies=" + cookies + "]";
+	}
+
 }

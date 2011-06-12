@@ -13,4 +13,7 @@ public class WebctConstants {
 	public static URL getUrl(String path) throws MalformedURLException {
 		return new URL(PROTOCOL,HOST,PORT,path);
 	}
+	public static URL getWsUrl(String path) throws MalformedURLException {
+		return new URL(PROTOCOL,HOST,PORT,CTX_WS_URI+path);
+	}
 }

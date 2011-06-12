@@ -17,5 +17,7 @@
 	<classpathentry kind="lib" path="lib/tt-bytecode.jar"/>
 	<classpathentry kind="lib" path="lib/webct1403_sdk_client.jar"/>
 	<classpathentry kind="lib" path="lib/wsdl4j.jar"/>
+	<classpathentry kind="lib" path="lib/activation.jar"/>
+	<classpathentry kind="lib" path="lib/mail.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

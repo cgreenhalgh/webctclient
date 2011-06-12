@@ -9,6 +9,9 @@ import java.awt.Frame;
 import java.awt.GraphicsConfiguration;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.net.URL;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -18,6 +21,7 @@ import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
@@ -26,6 +30,15 @@ import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.text.BadLocationException;
+
+import webctclient.test.TestConstants;
+import webctclient.webscraper.Cookies;
+import webctclient.webscraper.Login;
+
+import com.webct.platform.sdk.context.client.ContextSDK;
+import com.webct.platform.sdk.context.gen.SessionVO;
+import com.webct.platform.sdk.filemanager.client.FileManagerSDKFactory;
+import com.webct.platform.sdk.filemanager.FileManagerService;
 
 /**
  * @author cmg
@@ -38,6 +51,21 @@ public class LoginDialog extends JDialog {
 	private JTextField passwordtf;
 	private JTextArea statusta;
 	private AbstractAction ok;
+	private BackgroundTask loginTask;
+	private SessionVO session;
+	private String username;
+	private Cookies cookies;
+	
+	public SessionVO getSession() {
+		return session;
+	}
+	public String getUsername() {
+		return username;
+	}
+
+	public Cookies getCookies() {
+		return cookies;
+	}
 	public static void addLabel(JPanel p, String text) {
 		JLabel l = new JLabel(text);
 		//l.setHorizontalAlignment(SwingConstants.LEFT);
@@ -48,9 +76,10 @@ public class LoginDialog extends JDialog {
 	}
 	/**
 	 * @param arg0
+	 * 
 	 */
 	public LoginDialog(Frame arg0) {
-		super(arg0);
+		super(arg0, true);
 		JPanel p = new JPanel();
 		// TODO Auto-generated constructor stub
 		BoxLayout pl = new BoxLayout(p, BoxLayout.PAGE_AXIS);
@@ -85,28 +114,71 @@ public class LoginDialog extends JDialog {
 		statusta.setEditable(false);
 		this.getContentPane().add(p);
 		this.pack();
+		addWindowListener(new WindowAdapter() {
+
+			@Override
+			public void windowClosing(WindowEvent e) {
+				if (loginTask!=null)
+					loginTask.cancel();			
+				System.exit(0);
+			}			
+		});
 	}
 
 	protected void startLogin() {
-		String username = usernametf.getText();
+		username = usernametf.getText();
 		if (username.length()==0) {
 			status("Please specify a username");
 			return;
 		}
-		String password = passwordtf.getText();
+		final String password = passwordtf.getText();
 		if (password.length()==0) {
 			status("Please specify a password for "+username);
 			return;
 		}
 		ok.setEnabled(false);
 		status("login as "+username);
-		// TODO Auto-generated method stub
-		
-		status("Unimplemented - sorry");
+		loginTask = new BackgroundTask() {
+			@Override
+			protected void onFailure() {
+				status("Error logging in");
+				ok.setEnabled(true);
+				JOptionPane.showMessageDialog(LoginDialog.this, "Could not log in with this username and password", "Error logging in", JOptionPane.ERROR_MESSAGE);
+			}
+
+			@Override
+			protected void onSuccess() {
+				setVisible(false);
+			}
+
+			@Override
+			protected boolean task() {
+				return backgroundLogin(username, password);
+			}
+			
+		};
+		loginTask.start();
 		ok.setEnabled(true);
 	}
+	protected boolean backgroundLogin(String username, String password) {
+		try {
+	        ContextSDK context = new ContextSDK(WebctConstants.getWsUrl("Context"));
+	
+	        session = context.login(username, password, WebctConstants.INSTITUTION_GCLID);
+	        logger.log(Level.INFO, "got session "+session);
+
+	        cookies = Login.webctLogin(username, password);
+	        logger.log(Level.INFO, "got cookies "+cookies);
+	        
+	        return true;
+		}
+		catch (Exception e) {
+			logger.log(Level.WARNING, "error getting session", e);
+			//status("Error logging in: "+e);			
+		}
+		return false;
+	}
 	private void status(String string) {
-		// TODO Auto-generated method stub
 		statusta.append(string+"\n");
 		try {
 			statusta.scrollRectToVisible(statusta.modelToView(statusta.getText().length()-1));
