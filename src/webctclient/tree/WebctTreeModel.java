@@ -12,7 +12,10 @@ import javax.swing.tree.DefaultTreeModel;
 import webctclient.BackgroundTask;
 import webctclient.LazyTreeNode;
 import webctclient.Main;
+import webctclient.WebctConstants;
 
+import com.webct.platform.sdk.context.client.ContextSDK;
+import com.webct.platform.sdk.context.gen.LearningCtxtVO;
 import com.webct.platform.sdk.context.gen.SessionVO;
 import com.webct.platform.sdk.filemanager.FileManagerFolder;
 import com.webct.platform.sdk.filemanager.FileManagerItem;
@@ -34,7 +37,7 @@ public class WebctTreeModel extends DefaultTreeModel {
 		this.session = session;
 		DefaultMutableTreeNode filesn = new RootFoldersTreeNode();
 		
-		DefaultMutableTreeNode coursesn = new DefaultMutableTreeNode("Courses", true);
+		DefaultMutableTreeNode coursesn = new RootContextsTreeNode();
 		DefaultMutableTreeNode rootn = (DefaultMutableTreeNode)getRoot();
 		rootn.add(filesn);
 		rootn.add(coursesn);
@@ -156,5 +159,79 @@ public class WebctTreeModel extends DefaultTreeModel {
 //			t.start();
 		}
 
+	}
+	class RootContextsTreeNode extends LazyTreeNode {
+		RootContextsTreeNode() {
+			super("Contexts", true);
+		}
+
+		@Override
+		protected void makeChildren() {
+			final DefaultMutableTreeNode node = this;
+			DefaultMutableTreeNode working = new DefaultMutableTreeNode("(Loading...)", false);
+			add(working);
+			BackgroundTask t = new BackgroundTask() {
+				private long [] contextids;
+				private LearningCtxtVO [] contexts;
+
+				@Override
+				protected void onFailure() {
+					DefaultMutableTreeNode tn = (DefaultMutableTreeNode)getFirstChild();
+					tn.setUserObject("Error");
+					nodeChanged(tn);
+				}
+
+				@Override
+				protected void onSuccess() {
+					removeAllChildren();
+					for (int fi=0; fi<contexts.length; fi++) {
+						add(new ContextTreeNode(session, contexts[fi], contextids[fi]));
+					}
+					nodeStructureChanged(node);	
+				}
+
+				@SuppressWarnings("deprecation")
+				@Override
+				protected boolean task() {
+					try {
+						logger.log(Level.INFO, "Getting contexts...");
+						ContextSDK ctxt = new ContextSDK( WebctConstants.getWsUrl("Context") );
+						contextids = ctxt.getLearningContextIDs( session );
+						logger.log(Level.INFO, "Got "+contextids.length+" contexts");
+						contexts = new LearningCtxtVO [contextids.length];
+						for (int i=0; i<contextids.length; i++) {
+							contexts[i]= ctxt.getLearningContext( session, contextids[ i ] );
+						}
+						return true;
+					}
+					catch (Exception e) {
+						logger.log(Level.WARNING, "getting contexts", e);
+					}
+					return false;
+				}
+
+			};
+			t.start();
+		}
+	}
+	public class ContextTreeNode extends LazyTreeNode {
+		private LearningCtxtVO context;
+		private long contextid;
+		/**
+		 * @param userObject
+		 * @param folder
+		 */
+		public ContextTreeNode(SessionVO session, LearningCtxtVO context, long contextid) {
+			super(context.getName(), false/*true*/);
+			this.context = context;
+			this.contextid = contextid;
+		}
+		
+		public LearningCtxtVO getContext() {
+			return context;
+		}
+		public long getContextid() {
+			return contextid;
+		}
 	}
 }

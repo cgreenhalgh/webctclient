@@ -38,8 +38,10 @@ import javax.swing.tree.TreePath;
 import javax.swing.tree.TreeSelectionModel;
 
 import webctclient.tree.WebctTreeModel;
+import webctclient.tree.WebctTreeModel.ContextTreeNode;
 import webctclient.tree.WebctTreeModel.FolderTreeNode;
 
+import com.webct.platform.sdk.context.gen.LearningCtxtVO;
 import com.webct.platform.sdk.context.gen.SessionVO;
 import com.webct.platform.sdk.filemanager.FileManagerFolder;
 import com.webct.platform.sdk.filemanager.FileManagerService;
@@ -183,6 +185,18 @@ public class Main {
 			detailsta.append("Last Modified: "+folder.getLastModified().getTime()+"\n");
 
 			download.setEnabled(true);
+			return;
+		}
+		if (node instanceof WebctTreeModel.ContextTreeNode) {
+			ContextTreeNode ctn = (ContextTreeNode)node;
+			detailsnode = ctn;
+			LearningCtxtVO context = ctn.getContext();
+			detailsta.append("ID: "+ctn.getContextid()+"\n");
+			detailsta.append("Name: "+context.getName()+"\n");
+			detailsta.append("Description: "+context.getDesc()+"\n");
+			detailsta.append("Label: "+context.getLabel()+"\n");
+
+//			download.setEnabled(true);
 			return;
 		}
 	}
