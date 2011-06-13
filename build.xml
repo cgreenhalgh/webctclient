@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ====================================================================== 
+     webcttools
+                   
+     cmg                                                                
+     ====================================================================== -->
+<project name="webcttools" default="jar">
+    <description>
+    	WebCT Client for the University of Nottingham
+    </description>
+
+    <!-- - - - - - - - - - - - - - - - - - 
+          target: jar                      
+         - - - - - - - - - - - - - - - - - -->
+    <target name="jar">
+    	<mkdir dir="build"/>
+
+		<!-- <unjar dest="tmp" src="lib/log4j-1.2.13.jar" overwrite="yes"/> -->
+        	
+    	<javac destdir="build" target="1.5" srcdir="src" debug="true">
+    		<classpath>
+    			<!-- <pathelement path="tmp"/> -->
+    			<fileset dir="lib" includes="*.jar">
+    			</fileset>
+    		</classpath>
+   		</javac>
+    	
+    	<!-- <copy todir="tmp" file="src/log4j.properties"/> -->
+    	
+    	<jar destfile="webctclient.jar" basedir="build" manifest="src/META-INF/MANIFEST.MF"/>	
+    </target>
+	
+	<target name="clean" >
+		<delete dir="build"/>
+	</target>
+		
+</project>

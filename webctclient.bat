@@ -1,0 +1,1 @@
+java -classpath lib\activation.jar;lib\axis.jar;lib\commons-cli-1.0.jar;lib\commons-discovery.jar;lib\commons-logging.jar;lib\jaas.jar;lib\jaxrpc.jar;lib\jdom-1.0.jar;lib\log4j.jar;lib\mail.jar;lib\org.json.jar;lib\saaj.jar;lib\servlet.jar;lib\tt-bytecode.jar;lib\webct1403_sdk_client.jar;lib\wsdl4j.jar;webctclient.jar webctclient.Main
