@@ -4,9 +4,14 @@
 package webctclient.webscraper;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.util.Collection;
+import java.util.LinkedList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,6 +35,7 @@ public class ContentItem {
 	private String url;
 	private ContentPage contentPage;
 	private long fileId;
+	private LinkedList<TocItem> tocItems = new LinkedList<TocItem>();
 	
 	/** standard type */
 	public static final String ORGANIZER_PAGE_TYPE = "ORGANIZER_PAGE_TYPE";
@@ -228,12 +234,20 @@ parent.location.href="/webct/urw/lc362180469001.tp362180493001/previewtoc.dowebc
 					Pattern itemPattern = Pattern.compile("WebFXTreeItem[(][']([0-9]+([.][0-9]+)*)[ \\t]*([^']*)['](,'javascript:go[(]([0-9]+),([0-9]+)[)])?");
 					Matcher m2 = itemPattern.matcher(p2.getText());
 					while (m2.find()) {
+						TocItem tocitem = new TocItem();
 						String number = m2.group(1);
+						tocitem.setNumber(number);
 						String text = m2.group(3);
+						tocitem.setTitle(text);
 						String itemtoclinkid = m2.group(5);
+						tocitem.setCourseId(courseId);
+						tocitem.setTemplateId(templateId);
+						tocitem.setTocId(Long.parseLong(tocid));
+						tocItems.add(tocitem);
 						logger.info("Item "+number+": '"+text+"' - linkid="+itemtoclinkid);
 						if (itemtoclinkid==null)
 							continue;
+						tocitem.setTocLinkId(Long.parseLong(itemtoclinkid));
 						try {
 							String url3 = getUrl("previewtoc.dowebct", "TOCId="+tocid+"&TOCLinkId="+itemtoclinkid);
 							logger.info("toc page url: "+url3);
@@ -245,12 +259,81 @@ parent.location.href="/webct/urw/lc362180469001.tp362180493001/previewtoc.dowebc
 							/*
 							 <frame name="TOCCONTENTFRAME" title="Learning Module Content" src="/webct/urw/lc362180469001.tp362180493001/displayContentPage.dowebct?updateBreadcrumb=false&pageID=2355956232031&TOCId=2352911920061&TOCLinkId=2355956234031&nextLearningContextId=2355959821031&displayBCInsideFrame=true" marginwidth="8" marginheight="4" scrolling="YES" frameborder="yes" />
 							 */
+							Pattern pagePattern = Pattern.compile("displayContentPage.dowebct[?](updateBreadcrumb=false[&])?pageID=([0-9]+)[&]");
+							Matcher pageMatcher = pagePattern.matcher(p3.getText());
+							if (pageMatcher.find()) {
+								ContentItem item = new ContentItem();
+								item.setCourseId(courseId);
+								item.setId(Long.parseLong(pageMatcher.group(2)));
+								item.setType(ContentItem.PAGE_TYPE);
+								item.setTitle(text);
+								tocitem.setItem(item);
+							}
 						}
 						catch (Exception e) {
 							logger.error("following TOC item page "+itemtoclinkid, e);							
 						}
 					}
-				}			
+				}
+				
+				// write
+				
+				File subdir = new File(outputDir, title);
+				subdir.mkdir();
+				
+				File file = new File(subdir, "index.html");
+				logger.info("Write toc index to "+file);
+				PrintWriter pw = new PrintWriter(new OutputStreamWriter(new FileOutputStream(file), "UTF-8"));
+				pw.println("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">");
+				pw.println("<html><head>");
+				//String title = "Course "+this.courseId+" (template "+this.templateId+")";
+				pw.println("<META http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">");
+				pw.println("<title>"+title+"</title>");
+				pw.println("</head><body>");
+				pw.println("<h1>"+title+"</h1>");
+				for (TocItem tocItem : tocItems) {
+					
+					int depth = 0;
+					for (int i=0; i<tocItem .getNumber().length(); i++)
+						if (tocItem .getNumber().charAt(i)=='.')
+							depth++;
+					
+					pw.println("<h"+(1+depth)+">"+tocItem .getNumber()+" "+tocItem .getTitle()+"</h"+(1+depth)+">");
+					pw.println("<p>[tocId="+tocItem .getTocId()+", tocLinkId="+tocItem .getTocLinkId()+"]</p>");
+					
+					if (tocItem .getItem()!=null) {
+						ContentItem item = tocItem.getItem();
+
+						item.followItem(cookies, subdir, debugDir, false);
+						
+						if (ContentItem.PAGE_TYPE.equals(item.getType())) {
+							pw.println("<p>[<a href=\""+item.getFilename()+"\">"+item.getFilename()+"</a>]</p>");
+
+//						} else if (ContentItem.ORGANIZER_PAGE_TYPE.equals(item.getType()) ||
+//								ContentItem.TOC_TYPE.equals(item.getType())) {
+//							String folder = getSafeFileName(item.getTitle());
+//							pw.println("<h2><a href=\""+folder+"/index.html\">"+item.getTitle()+"</a></h2>");
+
+						} else if (ContentItem.URL_TYPE.equals(item.getType())) {
+							pw.println("<p>[<a href=\""+item.getUrl()+"\">"+item.getUrl()+"</a>]</p>");
+						}
+						else {
+							pw.println("<p>[type="+item.getType()+", id="+item.getId()+", tid="+item.getTemplateId()+"]</p>");
+						}
+					}
+					
+				}
+				pw.println("</body></html>");
+				pw.close();
+
+				if (deep) {
+					for (TocItem tocItem : tocItems) {
+						if (tocItem .getItem()!=null) {
+							ContentItem item = tocItem.getItem();
+							item.followItem(cookies, subdir, debugDir, true);
+						}
+					}
+				}
 			} catch (Exception e) {
 				logger.error("following TOC page "+this, e);
 			}
