@@ -5,6 +5,7 @@ package webctclient.webscraper;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.Collection;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -21,6 +22,7 @@ public class ContentItem {
 	private long id;
 	private String type;
 	private String title;
+	private String filename;
 	private String description;
 	private long courseId;
 	private long templateId;
@@ -35,6 +37,8 @@ public class ContentItem {
 	public static final String PAGE_TYPE = "PAGE_TYPE";
 	/** standard type */
 	public static final String URL_TYPE = "URL_TYPE";
+	/** standard type */
+	public static final String TOC_TYPE = "TOC_TYPE";
 	// hidden?
 	/** cons */
 	public ContentItem() {
@@ -63,6 +67,12 @@ public class ContentItem {
 	}
 	public void setDescription(String description) {
 		this.description = description;
+	}
+	/**
+	 * @return the filename
+	 */
+	public String getFilename() {
+		return filename;
 	}
 	/**
 	 * @return the courseId
@@ -116,7 +126,7 @@ public class ContentItem {
 				+ description + ", id=" + id + ", templateId=" + templateId
 				+ ", title=" + title + ", type=" + type + "]";
 	}
-	public void followItem(Cookies cookies, File dir) {
+	public void followItem(Cookies cookies, File outputDir, File debugDir, boolean deep) {
 		/*
 function displayTool(actionUrl, query, openInNewWindow, windowName,linkId, officeFlag) {
 ...
@@ -139,18 +149,114 @@ function submitSelfEnrollDisplay(signupSheetId, openInNewWindow, orgId, linkID){
 
 		 */
 		if (ORGANIZER_PAGE_TYPE.equals(type)) {
-			followOrganizerPage(cookies, dir);
+			followOrganizerPage(cookies, outputDir, debugDir, deep);
 		}
 		else if (PAGE_TYPE.equals(type)) {
-			followPage(cookies, dir);
+			followPage(cookies, outputDir, debugDir, deep);
 		}
 		else if (URL_TYPE.equals(type)) {
-			followUrl(cookies, dir); 
+			followUrl(cookies, outputDir, debugDir, deep); 
+		} 
+		else if (TOC_TYPE.equals(type)) {
+			followToc(cookies, outputDir, debugDir, deep); //"studentViewtoc.dowebct", "TOCId=");
 		}
-		else
+		else if ("DISCUSSION_CATEGORY_TYPE".equals(type))
+			followOther(cookies, debugDir, "areaViewCSO.dowebct", "areaid=");
+		else if ("DISCUSSION_TOPIC_TYPE".equals(type))
+			followOther(cookies, debugDir, "topicViewCSO.dowebct", "topicid=");
+		else if ("SCORM_TYPE".equals(type))
+			followOther(cookies, debugDir, "displayscorm.dowebct", "scormId=");
+		else if ("PROJECT_TYPE".equals(type))
+			followOther(cookies, debugDir, "viewAssignedProject.dowebct", "projectId=");
+		else if ("ASSESSMENT_TYPE".equals(type))
+			followOther(cookies, debugDir, "displayAssessmentIntro.dowebct", "assessment=");
+		else if ("MEDIA_COLLECTION_TYPE".equals(type))
+			followOther(cookies, debugDir, "viewEntriesInCollection.dowebct", "collectionid=");
+		else if ("CHAT_ROOM_TYPE".equals(type))
+			followOther(cookies, debugDir, "enterChat.dowebct", "OrgRoomID=");
+		else if ("SELF_ENROLLMENT_TYPE".equals(type))
+			followOther(cookies, debugDir, "membergradebookGetSelfEnrollView.dowebct", "signupSheetId=");
+		else if ("SYLLABUS_TYPE".equals(type))
+			followOther(cookies, debugDir, "syllabusStudentView.dowebct", "componentId=");
+		else if ("PROXY".equals(type))
+			followOther(cookies, debugDir, "ptLaunch.dowebct", "id=");
+		else 
 			logger.info("Ignoring unsupported item type "+type);
 	}
-	private void followPage(Cookies cookies, File dir) {
+	private void followToc(Cookies cookies, File outputDir, File debugDir,
+			boolean deep) {
+		/*
+		 <frame name="TOCMENUFRAME" title="Learning Module Table of Contents" scrolling="YES" src="/webct/urw/lc362180469001.tp362180493001/previewtocmenu.dowebct?updateBreadcrumb=&TOCId=2352911920061&TOCLinkId=2355956234031&nextLearningContextId=2355956234031" marginwidth="10" marginheight="0" frameborder="yes" /> 
+		 */
+		if (!deep)
+			return;
+		// TODO Auto-generated method stub
+		WebPage p = followOther(cookies, debugDir, "studentViewtoc.dowebct", "TOCId=");
+		if (p!=null) {
+			try {
+				// this produces a file which reloads to a different URL, see above
+				Pattern linkPattern = Pattern.compile("src=[\"]/webct/urw/lc([0-9]+).tp([0-9]+)/previewtocmenu.dowebct[?](updateBreadcrumb=&)?TOCId=([0-9]+)&TOCLinkId=([0-9]+)(&nextLearningContextId=[0-9]+)?[\"]");
+				Matcher m;
+				m = linkPattern.matcher(p.getText());
+				if (m.find()) 
+				{
+					String tocid = m.group(4), toclinkid = m.group(5);
+					logger.info("TOCId "+tocid+", TOCLinkId "+toclinkid);
+					String url = getUrl("previewtocmenu.dowebct", "TOCId="+tocid+"&TOCLinkId="+toclinkid);
+					logger.info("toc page url: "+url);
+					WebPage p2 = WebPage.download(url, cookies);
+					File file2 = new File(debugDir, title+"_ref2.html");
+					logger.info("save as "+file2);
+					p2.write(file2);
+					/*
+				    var topmenu = new WebFXTree('test module');
+    var menuComponent0 = new WebFXTreeItem('1 Heading 1');
+    topmenu.add(menuComponent0);
+    var menuComponent1 = new WebFXTreeItem('2 1.1 Course Outline','javascript:go(2355956234031,2352911920061)');
+    topmenu.add(menuComponent1);
+    var menuComponent2 = new WebFXTreeItem('2.1 another heading');
+    menuComponent1.add(menuComponent2);
+    var menuComponent3 = new WebFXTreeItem('2.2 ho hum','javascript:go(2355959838031,2352911920061)');
+    menuComponent1.add(menuComponent3);
+        document.write(topmenu);
+
+function go(toclinkid, tocid) {
+parent.location.href="/webct/urw/lc362180469001.tp362180493001/previewtoc.dowebct?updateBreadcrumb=false&resetBreadcrumb=false&TOCId="+tocid+"&TOCLinkId="+toclinkid+"#"+toclinkid;
+
+				 */
+					
+					Pattern itemPattern = Pattern.compile("WebFXTreeItem[(][']([0-9]+([.][0-9]+)*)[ \\t]*([^']*)['](,'javascript:go[(]([0-9]+),([0-9]+)[)])?");
+					Matcher m2 = itemPattern.matcher(p2.getText());
+					while (m2.find()) {
+						String number = m2.group(1);
+						String text = m2.group(3);
+						String itemtoclinkid = m2.group(5);
+						logger.info("Item "+number+": '"+text+"' - linkid="+itemtoclinkid);
+						if (itemtoclinkid==null)
+							continue;
+						try {
+							String url3 = getUrl("previewtoc.dowebct", "TOCId="+tocid+"&TOCLinkId="+itemtoclinkid);
+							logger.info("toc page url: "+url3);
+							WebPage p3 = WebPage.download(url3, cookies);
+							File file3 = new File(debugDir, title+"_"+text+"_ref2.html");
+							logger.info("save as "+file3);
+							p3.write(file3);
+
+							/*
+							 <frame name="TOCCONTENTFRAME" title="Learning Module Content" src="/webct/urw/lc362180469001.tp362180493001/displayContentPage.dowebct?updateBreadcrumb=false&pageID=2355956232031&TOCId=2352911920061&TOCLinkId=2355956234031&nextLearningContextId=2355959821031&displayBCInsideFrame=true" marginwidth="8" marginheight="4" scrolling="YES" frameborder="yes" />
+							 */
+						}
+						catch (Exception e) {
+							logger.error("following TOC item page "+itemtoclinkid, e);							
+						}
+					}
+				}			
+			} catch (Exception e) {
+				logger.error("following TOC page "+this, e);
+			}
+		}
+	}
+	private void followPage(Cookies cookies, File outputDir, File debugDir, boolean deep) {
 		
 /*
  'displayContentPage.dowebct', 'pageID='+pageId
@@ -165,29 +271,44 @@ window.location.href="/webct/urw/lc169594905001.tp169606253001//RelativeResource
 			String url = getUrl("displayContentPage.dowebct", "pageID="+id);
 			logger.info("page url: "+url);
 			WebPage p = WebPage.download(url, cookies);
-			File file = new File(dir, title+"_ref.html");
+			File file = new File(debugDir, title+"_ref.html");
 			logger.info("save as "+file);
 			p.write(file);
 
 			// this produces a file which reloads to a different URL, see above
-				Pattern linkPattern = Pattern.compile("window.location.href=[\"]([^\"\\?]*[\\?]contentID=([0-9]+))[\"]");
-				Matcher m = linkPattern.matcher(p.getText());
-				if (m.find()) 
-				{
-					logger.info("ID "+m.group(2)+" (URL: "+m.group(1)+")");
+			Pattern linkPattern = Pattern.compile("window.location.href=[\"]([^\"\\?]*[\\?]contentID=([0-9]+))[\"]");
+			Matcher m = linkPattern.matcher(p.getText());
+			if (m.find()) 
+			{
+				logger.info("ID "+m.group(2)+" (URL: "+m.group(1)+")");
 
-					String contentID = m.group(2);
+				String contentID = m.group(2);
 
-					this.fileId = Long.parseLong(contentID);
-					
-					if (false) {
-						// don't download here for now - use files API?!
-						String url2 = getUrl("/RelativeResourceManager", "contentID="+contentID);
-						logger.info("resource url?: "+url2);
-						WebPage p2 = WebPage.download(url2, cookies, url);
-						File file2 = new File(dir, title);
-						logger.info("save as "+file2);
-						p2.write(file2);
+				this.fileId = Long.parseLong(contentID);
+
+				// don't download here for now - use files API?!
+				String url2 = getUrl("/RelativeResourceManager", "contentID="+contentID);
+				logger.info("resource url?: "+url2);
+				WebPage p2 = null;
+				if (deep) 
+					p2 = WebPage.download(url2, cookies, url);
+				// file extension?!
+				if (filename==null) {
+					if (p2==null)
+						p2 = WebPage.check(url2, cookies, url);
+
+					String contentType = p2.getContentType();
+					int ix = contentType.indexOf(";");
+					if(ix>=0)
+						contentType = contentType.substring(0, ix);
+					contentType = contentType.trim();
+					String extension = getFileExtension(contentType);
+					this.filename = title+extension;
+				}
+				if (deep) {
+					File file2 = new File(outputDir, filename);
+					logger.info("save as "+file2);
+					p2.write(file2);
 				}
 			}
 		}
@@ -195,7 +316,104 @@ window.location.href="/webct/urw/lc169594905001.tp169606253001//RelativeResource
 			logger.error("following organizer page "+this, e);
 		}
 	}
-	private void followUrl(Cookies cookies, File dir) {
+	private String getFileExtension(String contentType) {
+		if(contentType.equals("application/pdf"))
+			return ".pdf";
+		if(contentType.equals("application/postscript"))
+			return ".ps";
+		if(contentType.equals("application/zip"))
+			return ".zip";
+		if(contentType.equals("application/x-gzip"))
+			return ".gzip";
+		if(contentType.equals("application/xhtml+xml"))
+			return ".xhtml";
+		if(contentType.equals("application/ogg"))
+			return ".ogg";
+		if(contentType.equals("audio/mp4"))
+			return ".mp4";
+		if(contentType.equals("audio/mpeg"))
+			return ".mpeg";
+		if(contentType.equals("audio/ogg"))
+			return ".ogg";
+		if(contentType.equals("audio/x-ms-wma"))
+			return ".wma";
+		if(contentType.equals("audio/vnd.wave"))
+			return ".wav";
+		if(contentType.equals("image/gif"))
+			return ".gif";
+		if(contentType.equals("image/jpeg"))
+			return ".jpg";
+		if(contentType.equals("image/pjpeg"))
+			return ".jpg";
+		if(contentType.equals("image/png"))
+			return ".png";
+		if(contentType.equals("image/svg+xm"))
+			return ".svg";
+		if(contentType.equals("image/tiff"))
+			return ".tiff";
+		if(contentType.equals("image/vnd.microsoft.icon"))
+			return ".ico";
+		if(contentType.equals("model/vrml"))
+			return ".vrml";
+		if(contentType.equals("text/css"))
+			return ".css";
+		if(contentType.equals("text/csv"))
+			return ".csv";
+		if(contentType.equals("text/html"))
+			return ".html";
+		if(contentType.equals("text/plain"))
+			return ".txt";
+		if(contentType.equals("text/xml"))
+			return ".xml";
+		if(contentType.equals("video/mpeg"))
+			return ".mpg";
+		if(contentType.equals("video/mp4"))
+			return ".mp4";
+		if(contentType.equals("video/ogg"))
+			return ".ogg";
+		if(contentType.equals("video/quicktime"))
+			return ".mov";
+		if(contentType.equals("video/webm"))
+			return ".webm";
+		if(contentType.equals("video/x-ms-wmv"))
+			return ".wmv";
+//		if(contentType.equals("application/vnd.oasis.opendocument.text"))
+//			return ".";
+		if(contentType.equals("application/vnd.ms-excel"))
+			return ".xls";
+		if(contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+			return ".xlsx";
+		if(contentType.equals("application/vnd.ms-powerpoint"))
+			return ".ppt";
+		if(contentType.equals("application/vnd.openxmlformats-officedocument.presentationml.presentation"))
+			return ".pptx";
+		if(contentType.equals("application/msword"))
+			return ".doc";
+		if(contentType.equals("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+			return ".docx";
+		if(contentType.equals("application/vnd.google-earth.kml+xml"))
+			return ".kml";
+		if(contentType.equals("application/x-dvi"))
+			return ".dvi";
+		if(contentType.equals("application/x-latex"))
+			return ".latex";
+		if(contentType.equals("application/x-font-ttf:"))
+			return ".ttf";
+		if(contentType.equals("application/x-shockwave-flash"))
+			return ".swf";
+		if(contentType.equals("application/x-stuffit"))
+			return ".stuffit";
+		if(contentType.equals("application/x-rar-compressed"))
+			return ".rar";
+		if(contentType.equals("application/x-tar"))
+			return ".tar";
+//		if(contentType.equals(""))
+//			return ".";
+		// TODO - more options!
+		logger.info("Unknown file extension for "+contentType);
+		return "."+contentType.replace("/", ".");
+	}
+	private void followUrl(Cookies cookies, File outputDir, File debugDir, boolean deep) {
 		// displayURLForQM.dowebct', 'URLId='+UrlID
 		/*
 <body bgcolor="#FFFFFF">
@@ -210,7 +428,7 @@ this.location= "http://www.nottingham.ac.uk/is/gateway/readinglists/local/displa
 			String url = getUrl("displayURLForQM.dowebct", "URLId="+id);
 			logger.info("URL ref url: "+url);
 			WebPage p = WebPage.download(url, cookies);
-			File file = new File(dir, title+"_ref.html");
+			File file = new File(debugDir, title+"_ref.html");
 			logger.info("save as "+file);
 			p.write(file);
 			// this produces a file which reloads to a different URL, see above
@@ -228,29 +446,39 @@ this.location= "http://www.nottingham.ac.uk/is/gateway/readinglists/local/displa
 		}
 
 	}
-	private void followOrganizerPage(Cookies cookies, File dir) {
+	private void followOrganizerPage(Cookies cookies, File outputDir, File debugDir, boolean deep) {
 		// TODO Auto-generated method stub
 /*
   studentCourseView.dowebct', 'displayinfo='+orgID+',ORGANIZER_PAGE_TYPE
 
  */
+		if (!deep)
+			return;
 		try {
 			String url = getUrl("studentCourseView.dowebct", "displayinfo="+id+",ORGANIZER_PAGE_TYPE");
 			logger.info("organizer url: "+url);
 			WebPage p = WebPage.download(url, cookies);
-			File file = new File(dir, title+".html");
+			File file = new File(debugDir, title+".html");
 			logger.info("save as "+file);
 			p.write(file);
 			
-			File subdir = new File(dir, title);
+			File subdir = new File(outputDir, title);
 			subdir.mkdir();
 			// recurse
 			try {
-				ContentPage cp = new ContentPage(WebPage.read(file));
+				ContentPage cp = new ContentPage(WebPage.read(file), this.title);
 				logger.info("Read: "+cp);
 				for (ContentItem item : cp.getItems()) {
 					logger.info("Item: "+item);
-					item.followItem(cookies, subdir);
+					item.followItem(cookies, subdir, debugDir, false);
+				}
+				this.contentPage = cp;
+				cp.writeIndex(new File(subdir,"index.html"));
+				if (deep) {
+					for (ContentItem item : cp.getItems()) {
+						logger.info("Item: "+item);
+						item.followItem(cookies, subdir, debugDir, deep);
+					}
 				}
 				this.contentPage = cp;
 			} catch (IOException e) {
@@ -261,6 +489,27 @@ this.location= "http://www.nottingham.ac.uk/is/gateway/readinglists/local/displa
 		catch (Exception e) {
 			logger.error("following organizer page "+this, e);
 		}
+	}
+	private WebPage followOther(Cookies cookies, File debugDir, String path, String queryPrefix) {
+		return followOther(cookies, debugDir, path, queryPrefix, null);
+	}
+	private WebPage followOther(Cookies cookies, File debugDir, String path, String queryPrefix, String fragment) {
+		try {
+			String url = getUrl(path, queryPrefix+id);
+			if (fragment!=null)
+				url = url+'#'+fragment;
+			logger.info("URL ref url: "+url);
+			WebPage p = WebPage.download(url, cookies);
+			File file = new File(debugDir, title+"_ref.html");
+			logger.info("save as "+file);
+			p.write(file);
+			// ??
+			return p;
+		}
+		catch (Exception e) {
+			logger.error("following other page "+this, e);
+		}
+		return null;
 	}
 	private String getUrl(String action, String query) {
 		return WebctConstants.PROTOCOL+"://"+WebctConstants.HOST+":"+WebctConstants.PORT+"/webct/urw/lc"+courseId+".tp"+templateId+"/"+action+"?"+query;

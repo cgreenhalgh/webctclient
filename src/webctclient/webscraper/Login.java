@@ -57,7 +57,7 @@ glcid=URN%3AX%2DWEBCT%2DVISTA%2DV1%3A156bc1b3%2D80f3%2D290b%2D010c%2Db13c10f8e69
 		os.close();
 		int status = conn.getResponseCode();
 		logger.info("Login status "+status+": "+conn.getResponseMessage());
-		WebPage page = WebPage.read(conn);
+		WebPage page = WebPage.read(conn, false);
 		logger.info("Response: "+page.getText());
 		return new Cookies(conn);
 	}

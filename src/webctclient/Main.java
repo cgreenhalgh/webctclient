@@ -141,21 +141,27 @@ public class Main {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
 
+				// choose output directory
+				int res = ffc.showSaveDialog(frame);
+				if (res!=JFileChooser.APPROVE_OPTION)
+					return;
+				File dir = ffc.getSelectedFile();
+				if (!dir.isDirectory() || !dir.canWrite()) {
+					JOptionPane.showMessageDialog(frame, "Cannot save to "+dir, "Error", JOptionPane.ERROR_MESSAGE);
+					return;
+				}
 				if (detailsnode instanceof WebctTreeModel.FolderTreeNode) {
 					FolderTreeNode ftn = (FolderTreeNode)detailsnode;
 					FileManagerFolder folder = ftn.getFolder();
-					// choose output directory
-					int res = ffc.showSaveDialog(frame);
-					if (res!=JFileChooser.APPROVE_OPTION)
-						return;
-					File dir = ffc.getSelectedFile();
-					if (!dir.isDirectory() || !dir.canWrite()) {
-						JOptionPane.showMessageDialog(frame, "Cannot save to "+dir, "Error", JOptionPane.ERROR_MESSAGE);
-						return;
-					}
 					// show progress dialog
 					// download...
 					new DownloadFolderDialog(frame, login.getSession(), folder, dir);
+				}
+				else if (detailsnode instanceof WebctTreeModel.ContextTreeNode) {
+					ContextTreeNode ctn = (ContextTreeNode)detailsnode;
+					long contextid = ctn.getContextid();
+					LearningCtxtVO context = ctn.getContext();
+					new DownloadContextDialog(frame, login.getSession(), login.getCookies(), contextid, context, dir);					
 				}
 			}
 			
@@ -198,7 +204,7 @@ public class Main {
 			detailsta.append("Description: "+context.getDesc()+"\n");
 			detailsta.append("Label: "+context.getLabel()+"\n");
 
-//			download.setEnabled(true);
+			download.setEnabled(true);
 			return;
 		}
 	}

@@ -75,31 +75,40 @@ public class WebPage {
 		conn.setRequestProperty(cookies.getRequestProperty(), cookies.getRequestValue());
 		if (referer!=null)
 			conn.setRequestProperty("Referer", referer);
-		return read(conn);
+		return read(conn, false);
 	}
-	public static WebPage read(HttpURLConnection conn) throws IOException {
+	public static WebPage check(String surl, Cookies cookies, String referer) throws MalformedURLException, IOException {
+		URL url = new URL(surl);
+		HttpURLConnection conn = (HttpURLConnection)url.openConnection();
+		conn.setRequestProperty(cookies.getRequestProperty(), cookies.getRequestValue());
+		if (referer!=null)
+			conn.setRequestProperty("Referer", referer);
+		return read(conn, true);
+	}
+	public static WebPage read(HttpURLConnection conn, boolean checkOnly) throws IOException {
 		String contentType = conn.getContentType();
 		logger.info("Content type: "+contentType);
 		String encoding = conn.getContentEncoding();
-		return read(conn.getInputStream(), contentType, encoding);
+		return read(conn.getInputStream(), contentType, encoding, checkOnly);
 	}
 	public static WebPage read(InputStream is) throws IOException {
-		return read(is, null, null);
+		return read(is, null, null, false);
 	}
-	static WebPage read(InputStream is, String contentType, String encoding) throws IOException {
+	static WebPage read(InputStream is, String contentType, String encoding, boolean checkOnly) throws IOException {
 		byte buf [] = new byte[10000];
 		int count = 0;
-		while(true) {
-			if (count>=buf.length) {
-				byte nbuf[] = new byte[buf.length*4];
-				System.arraycopy(buf, 0, nbuf, 0, count);
-				buf = nbuf;				
+		if (!checkOnly)
+			while(true) {
+				if (count>=buf.length) {
+					byte nbuf[] = new byte[buf.length*4];
+					System.arraycopy(buf, 0, nbuf, 0, count);
+					buf = nbuf;				
+				}
+				int n = is.read(buf, count, buf.length-count);
+				if (n<0)
+					break;
+				count += n;
 			}
-			int n = is.read(buf, count, buf.length-count);
-			if (n<0)
-				break;
-			count += n;
-		}
 		try {
 			is.close();
 		}
@@ -110,7 +119,7 @@ public class WebPage {
 		return page;
 	}
 	public static WebPage read(File file) throws IOException {
-		return read(new FileInputStream(file), null, "UTF-8");// assumed encoding!
+		return read(new FileInputStream(file), null, "UTF-8", false);// assumed encoding!
 	}
 	public void write(File file) throws IOException {
 		FileOutputStream fos = new FileOutputStream(file);

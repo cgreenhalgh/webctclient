@@ -120,12 +120,12 @@ public class DownloadContext {
 		courseDir.mkdirs();
 		page.write(new File(courseDir, "course.html"));
 		
-		ContentPage cp = new ContentPage(page);
+		ContentPage cp = new ContentPage(page, lc.getName());
 
 		logger.info("Read: "+cp);
 		for (ContentItem item : cp.getItems()) {
 			logger.info("Item: "+item);
-			item.followItem(cookies, courseDir);
+			item.followItem(cookies, courseDir, courseDir, true);
 		}
 		
 		JSONObject jo = cp.toJson();
