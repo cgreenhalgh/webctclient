@@ -158,7 +158,6 @@ public class LoginDialog extends JDialog {
 			
 		};
 		loginTask.start();
-		ok.setEnabled(true);
 	}
 	protected boolean backgroundLogin(String username, String password) {
 		try {

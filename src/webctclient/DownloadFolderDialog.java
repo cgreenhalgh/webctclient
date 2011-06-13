@@ -21,8 +21,10 @@ import webctclient.tree.WebctTreeModel;
 import com.webct.platform.sdk.context.gen.SessionVO;
 import com.webct.platform.sdk.filemanager.FileManagerFolder;
 import com.webct.platform.sdk.filemanager.FileManagerItem;
+import com.webct.platform.sdk.filemanager.FileManagerFile;
 import com.webct.platform.sdk.filemanager.FileManagerService;
 import com.webct.platform.sdk.filemanager.exceptions.FileManagerException;
+
 
 /**
  * @author cmg
@@ -89,6 +91,10 @@ public class DownloadFolderDialog extends ProgressDialog {
 					getFolder(fms, localFile, items[i].getPath());
 				}
 				else {
+					if (localFile.exists() && localFile.isFile() && (items[i] instanceof FileManagerFile) && ((FileManagerFile)items[i]).getContentSize()==localFile.length()) {
+						backgroundOutput("Skipping "+localFile+" - already downloaded\n");
+						continue;
+					}
 					backgroundOutput("Download "+localFile+"...\n");
 					// TODO
 					DataHandler dh = fms.getFileContent(session, items[i].getPath());

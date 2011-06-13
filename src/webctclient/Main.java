@@ -131,6 +131,11 @@ public class Main {
 		details.add(dsp, BorderLayout.CENTER);
 		JPanel buttons = new JPanel();
 		buttons.setLayout(new FlowLayout());
+		
+		final JFileChooser ffc = new JFileChooser();
+		ffc.setDialogTitle("Directory to save files into");
+		ffc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+
 		download = new AbstractAction("Download") {
 
 			@Override
@@ -140,13 +145,10 @@ public class Main {
 					FolderTreeNode ftn = (FolderTreeNode)detailsnode;
 					FileManagerFolder folder = ftn.getFolder();
 					// choose output directory
-					JFileChooser fc = new JFileChooser();
-					fc.setDialogTitle("Directory to save files into");
-					fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-					int res = fc.showSaveDialog(frame);
+					int res = ffc.showSaveDialog(frame);
 					if (res!=JFileChooser.APPROVE_OPTION)
 						return;
-					File dir = fc.getSelectedFile();
+					File dir = ffc.getSelectedFile();
 					if (!dir.isDirectory() || !dir.canWrite()) {
 						JOptionPane.showMessageDialog(frame, "Cannot save to "+dir, "Error", JOptionPane.ERROR_MESSAGE);
 						return;
